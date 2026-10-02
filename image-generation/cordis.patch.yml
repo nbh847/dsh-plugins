@@ -1,0 +1,4 @@
+# Register the SenseNova U1.5 Lite image generation tool on the host.
+- insert:
+    - id: image-generation
+      name: 'dsh-plugin-image-generation'

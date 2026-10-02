@@ -6,7 +6,7 @@
 2. 在系统设置插件列表中可以启用、关闭。
 3. 遵循宿主 Agent Tools 接口，注册后可被 Agent 调用。
 4. 使用 SenseNova U1.5 Lite。
-5. 先创建生成任务，再每 5 秒轮询一次生成结果，直到成功、失败、超时或取消。
+5. 工具一次同步调用直接返回生成结果：`generate_image` 内部调用官方同步接口并等待响应（2026-10-02 用户决策；原「先创建任务、再每 5 秒轮询」需求因官方无异步契约而废弃，见 API 核对状态）。
 6. API Key 由用户在环境变量文件中配置。
 7. 插件在独立路径维护，dsh 通过外部引用加载；插件由父目录 `dsh-plugins` 仓库统一管理并推送保存。
 
@@ -33,41 +33,78 @@
 
 独立外部插件的边界已确定；包名、profile／bundle 引用方式、Agent 预设可见性及客户端配套包在实现前确定，不假设仅注册全局工具就能绕过预设能力限制。
 
+### 宿主接口核实结论（2026-10-02，基于运行版本 0.2.0-rc.2 源码）
+
+- 插件形态：纯 host 插件即可，无需客户端包。profile bundle 列出包名后，宿主读取包的 `dsh.bundle.patch` 指向的 patch 文件，经 `- insert` 条目导入包的 ESM 入口，命名导出 `apply(ctx)` 即 object plugin 生效；需要客户端界面时才声明 `dsh.client` 与 `./client` 导出。
+- 工具注册：`ctx.tools.register()` 配合宿主 `defineTool` DSL；`parameters` 使用宿主的 JSON Schema 方言，`output` 必须同时声明 `schema` 与 `render`；`execute(args, exec)` 返回可 JSON 化的值，抛出的异常被宿主包装为结构化工具错误（`ToolErrorInfo { name, code, reason? }`），不会中断会话。真实模板见 `packages/boot/plugin-manager/src/tools.ts`。
+- Agent 可见性：在宿主根 context 注册的工具默认进入所有 Agent 的可见工具集，无需编写 preset；preset 可用 `restrict` 过滤，属宿主既有行为。
+- 启停：条目级 `disabled` 选项由宿主插件页和 `plugin_manager` 工具写入 profile 的 `cordis.patch.yml`；禁用触发 cordis dispose，`tools.register()` 返回的 disposer 自动执行，无需自建启用状态。设置页内置清单仍只读，结论与上一节一致。
+- 配置读取：宿主启动时经 `loadLayeredEnv` 合并继承环境、调用目录 `.env` 与 `~/.dsh/.env`（非 bootstrap 前缀变量在未定义时写入 `process.env`）；插件直接读 `process.env.SENSENOVA_API_KEY`。不得使用 `DSH_` 前缀命名新变量。
+- 包清单惯例：peerDependencies 中 `@deepseek-ai/dsh-*` 声明为 `^0.2.0-rc.2` 可通过兼容性检查（含 prerelease 语义），无需豁免；`^0.2.0` 会被判不兼容，禁用。构建产物 `lib/index.js`，`type: module`。
+- 超时与取消：注册表不强制超时，仅声明 `timeoutMs` 的工具受默认 timeout-policy 约束；取消经 `exec.signal` 传播，工具体必须把该信号传给内部 HTTP 请求，否则取消只替换结果、请求仍在后台执行。
+
 ## API 核对状态
 
-指定入口：[SenseNova API 文档](https://platform.sensenova.cn/docs) 。本次网页读取未返回可用正文，未取得异步接口定义。
+2026-10-02 完成核对。官方文档已全文读取，异步任务接口经全量核实不存在，官方唯一公开契约为同步接口。
 
-[商汤官方 U1.5 Lite 接入示例](https://www.sensetime.com/cn/news/sensenova-u1-5-lite-token-plan-20260911-1741) 使用模型标识 `sensenova-u1.5-lite`，以 Bearer API Key 调用 `https://token.sensenova.cn/v1/images/generations` 并直接读取图片 URL。此示例只能作为模型与同步接口线索，不足以证明异步创建与查询接口适用于该模型。
+### 官方唯一契约：OpenAI 兼容同步图像接口
 
-实现前必须取得对应异步文档，逐项核对：创建与查询请求方法及端点、鉴权、模型标识、任务 ID、状态枚举、图片结果字段、尺寸和数量限制、错误结构、限流及任务有效期。不得凭空填写路径和字段。
+来源：[SenseNova 官方文档站 U1.5 Lite 章节](https://platform.sensenova.cn/docs) （2026-10-02 经真实浏览器渲染读取正文，接口标题即为「同步图片生成」）；与[商汤官方接入公告](https://www.sensetime.com/cn/news/sensenova-u1-5-lite-token-plan-20260911-1741) 一致，字段冲突处以文档站为准。逐字段记录：
+
+- 端点与方法：`POST https://token.sensenova.cn/v1/images/generations`（文生图，仅输入文本 prompt）；`POST /v1/images/edits`（同步图片编辑，含参考图，本项目未要求）。
+- 鉴权：`Authorization: Bearer <API_KEY>`，Token Plan 的 `sk-` 密钥，与 profile 中 sensenova provider 的 `SENSENOVA_API_KEY` 同源。
+- 请求参数（文档站参数表）：
+  - `model`：string，必填，`sensenova-u1.5-lite`。
+  - `prompt`：string，必填，图像生成描述。
+  - `size`：string，默认 `auto`；或 2K／4K 常量，或 `{宽}x{高}`（32 的倍数，512–4096，最大比例 3:1、1:3；建议 2048x2048、2720x1536 等）。
+  - `n`：integer，默认 1，**仅支持值为 1**。
+  - `watermark`：boolean，默认 true；`false` 生成无水印纯图（公测期间免费，官方建议显式传参防止默认值变更）。
+  - `response_format`：string，默认 `b64_json`；可选 `url`（24 小时有效的临时下载地址）；`data[].b64_json` 与 `data[].url` 不同时返回。
+  - `output_format`：string，默认 `png`；可选 `jpeg`、`webp`；不控制返回方式。
+  - `prompt_extend`：boolean，默认 true，提示词自动润色，扩写失败时回退原始 prompt。
+- 响应：`created`（时间戳）、`data[]`（`url` 或 `b64_json`）、`output_format`、`size`、`usage`（`input_tokens`、`input_tokens_details`、`output_tokens`、`total_tokens`、`images_count`）。
+- 行为：同步阻塞返回，一次请求直接给出最终结果；无任务 ID，无查询端点。返回的图片 URL 24 小时后失效。
+- 该接口独立于 Chat Completions，Chat 接口不支持图像输出。
+
+### 异步任务接口不存在的证据链
+
+- [SenseNova 官方文档站](https://platform.sensenova.cn/docs) 全站标题枚举（2026-10-02 浏览器渲染读取）：U1.5 Lite 与 U1.5 Fast 章节均仅有「同步图片生成」「同步图片编辑」两个接口，接口标题官方即标注「同步」；全站（概览、鉴权、各模型、兼容接口、错误码、工具接入）无任何异步任务或任务查询接口页面。
+- [SenseCore 官方帮助中心 sitemap 全量枚举](https://console.sensecore.cn/micro/help/sitemap.xml) ：`model-as-a-service/nova` 目录下仅有图文对话、语音、实时交互、文件、模型管理等页面，无任何图片生成或异步任务接口文档。
+- [商汤官方 U1.5 Lite 接入公告](https://www.sensetime.com/cn/news/sensenova-u1-5-lite-token-plan-20260911-1741) 全文：仅同步接口，未提及创建任务、任务 ID 或查询端点。
+- 多轮定向搜索（中文、英文、site 限定 sensecore.cn／sensetime.com、GitHub、第三方生态）：命中的异步任务模式均属其他厂商或第三方中转站，无 SenseNova U1.5 Lite 异步接口的官方痕迹。
+
+### 实现路径决策记录
+
+原需求第 5 条「先创建生成任务，再每 5 秒轮询一次生成结果」以存在异步任务契约为前提；官方契约只有同步接口，无任务 ID 可轮询，曾按施工清单红线停在核对阶段。
+
+2026-10-02 用户决策：**采用官方同步接口实现，放弃 5 秒轮询设计**。工具在一次调用内发出同步长请求并等待响应，通过宿主 `timeoutMs` 与 `exec.signal` 实现超时与取消；不添加无契约依据的任务轮询，不做伪装的两阶段流程。
 
 ## 计划实现结构
 
 | 计划文件 | 职责 |
 | --- | --- |
-| `src/index.ts` | Cordis 入口、服务依赖、工具注册及资源释放 |
+| `src/index.ts` | Cordis 入口、工具注册、生命周期资源释放 |
 | `src/config.ts` | 环境变量读取与配置校验 |
-| `src/sensenova.ts` | 创建任务、查询结果与响应校验 |
-| `src/generate.ts` | 5 秒轮询、终态处理、超时与取消 |
-| `tests/` | 工具生命周期、请求契约、轮询及失败路径验证 |
+| `src/sensenova.ts` | 同步生成请求、响应校验与错误归一 |
+| `tests/` | 工具生命周期、请求契约、超时取消及失败路径验证 |
 
-构建、包清单与客户端文件在确认宿主接入方式后建立，不在本阶段写空实现。
+构建与包清单按宿主外部插件惯例建立（`lib/index.js` 产物、`dsh.bundle.patch`、peer `^0.2.0-rc.2`）；纯 host 插件，无客户端包。
 
 ## 工具与流程约定
 
-拟使用工具名 `generate_image`；工具参数至少包含非空 `prompt`，其他参数由已核实 API 决定。密钥、服务地址与模型配置不作为 Agent 可随意覆盖的参数。
+工具名 `generate_image`。参数按已核实官方契约设计：`prompt`（string，必填非空）；`size`（string，选填，透传官方取值）；`watermark`（boolean，选填，默认 `false` 生成无水印纯图——公测免费，且避免官方 Logo 加在用户创作图上；官方亦建议显式传参防止默认值变更）。`model` 固定 `sensenova-u1.5-lite`、`n` 固定 1（官方仅支持 1）、`response_format` 固定 `url`（官方默认 `b64_json` 会把整图 Base64 写入工具结果，不可接受；`url` 为 24 小时临时链接）；密钥、服务地址与模型配置不作为 Agent 可覆盖参数。
 
-一次工具调用封装完整两阶段流程：校验输入与配置，创建任务并取得任务 ID，等待 5 秒后查询；非终态时再次等待 5 秒查询，不重叠请求。成功返回图片结果及任务 ID，失败返回符合宿主类型的错误结果。确切工具类型、返回结构和取消信号按宿主公开接口实现，不自定义替代标准。
+一次工具调用即一次同步生成请求：校验配置与输入，`POST /v1/images/generations` 并携带 `exec.signal`，等待响应后校验结构，返回图片 URL、实际尺寸与 token 用量。请求超时或失败不自动重试，避免重复扣费。
 
-轮询必须有总等待上限，具体值与宿主工具超时共同确定。取消、禁用和卸载应停止本地请求与计时器；远端任务能否取消以官方 API 为准，不承诺停止已经计费的生成任务。创建请求超时后不自动重复提交，避免重复任务和扣费。图片下载、持久化及会话附件展示尚未确定，不默认增加该范围。
+禁用或卸载时通过注册返回的 disposer 与 `AbortController` 终止进行中的请求；远端已受理的生成无法取消，不承诺停止已计费任务。插件内总等待由工具声明的 `timeoutMs` 与请求超时共同控制，具体值实现时按官方无 SLA 的实际情况取保守上限。
 
-缺少密钥应显示可解释的配置错误且不发起请求，不导致整个宿主无法启动。日志和错误必须脱敏。
+缺少密钥时返回可解释的配置错误且不发起请求，不影响宿主启动。日志和错误必须脱敏：不记录 Authorization 头与密钥，错误信息仅透出 API 错误码与 message。
 
 ## 验收标准
 
-- 插件可被 Harness 发现；系统设置列表按需求提供启停能力，并真实反映宿主状态。
-- 启用且配置有效时工具可按宿主规则进入目标 Agent 工具列表；禁用或卸载后撤销注册，无遗留计时器。
-- 每次调用只创建一个任务；使用可控计时器验证首次及后续查询间隔为 5 秒，无重叠轮询，终态后不再查询。
-- 覆盖空提示词、缺少密钥、鉴权失败、限流、网络失败、无效响应、未知状态、生成失败、超时与取消。
-- 模拟接口测试不访问真实服务；取得用户配置后再执行一次真实两阶段调用，记录端点契约与结果，密钥不进入测试产物。
+- 插件可被 Harness 发现，并通过宿主侧栏插件页的 `disabled` 机制启停，真实反映宿主状态。
+- 启用且配置有效时工具按宿主规则进入目标 Agent 工具列表；禁用或卸载后撤销注册，无遗留请求。
+- 一次工具调用只发出一次生成请求；请求携带 `exec.signal`，超时与取消后不重试。
+- 覆盖空提示词、缺少密钥、鉴权失败、限流、网络失败、无效响应、生成失败、超时与取消。
+- 模拟接口测试不访问真实服务；取得用户授权后使用本地配置执行一次真实调用，记录脱敏结果与契约，密钥不进入测试产物。
 - 执行插件必要类型检查、测试及构建，宿主集成按实际改动运行相关检查；未通过前保持未验收状态。
