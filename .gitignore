@@ -13,3 +13,25 @@ coverage/
 .agents/
 .codex/
 *.tsbuildinfo
+
+# Local caches and logs
+.cache/
+.npm/
+.pnpm-store/
+.eslintcache
+.stylelintcache
+*.log
+
+# Local editor and agent settings
+.cursor/
+.claude/
+AGENTS.local.md
+CLAUDE.local.md
+*.swp
+*.swo
+*~
+
+# macOS metadata
+._*
+.Spotlight-V100/
+.Trashes/
