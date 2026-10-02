@@ -1,0 +1,4 @@
+# Register the Qwen-Audio-TTS text-to-speech tool on the host.
+- insert:
+    - id: text-to-speech
+      name: 'dsh-plugin-text-to-speech'

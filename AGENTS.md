@@ -5,6 +5,7 @@
 本仓库统一维护个人 DeepSeek Harness 插件，每个插件使用独立子目录；插件与宿主源码分离，通过宿主公开接口加载。
 
 - `image-generation/`：图片生成插件，具体边界及验证入口见其 `AGENTS.md`。
+- `text-to-speech/`：文字转语音插件，具体边界及验证入口见其 `AGENTS.md`。
 - `README.md`：仓库说明与插件入口。
 - `ROADMAP.md`：仓库当前进度；插件实现进度记录在各插件的 `ROADMAP.md`。
 
