@@ -1,0 +1,4 @@
+minimumReleaseAgeExclude:
+  - hyperframes@0.8.111
+allowBuilds:
+  esbuild: true

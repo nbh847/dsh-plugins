@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="UTF-8"><style>
+html,body{margin:0;width:320px;height:180px;overflow:hidden;background:#102030;color:white;font:24px sans-serif}
+#label{position:absolute;left:20px;top:60px}
+</style></head><body>
+<div data-composition-id="test" data-duration="1" data-width="320" data-height="180">
+<div id="label" class="clip" data-start="0" data-duration="1" data-track-index="0">Video Toolkit</div>
+</div>
+<script>
+window.__timelines = {};
+window.__timelines["test"] = {
+  duration: () => 1,
+  pause: () => {},
+  seek: time => { document.getElementById('label').style.left = `${20 + time * 100}px`; }
+};
+</script>
+</body></html>

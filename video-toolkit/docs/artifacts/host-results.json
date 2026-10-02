@@ -1,0 +1,73 @@
+{
+  "before": [
+    "video_lint",
+    "video_snapshot",
+    "video_render"
+  ],
+  "afterDisabled": [],
+  "afterEnabled": [
+    "video_lint",
+    "video_snapshot",
+    "video_render"
+  ],
+  "afterInFlightDisabled": [],
+  "afterReenabled": [
+    "video_lint",
+    "video_snapshot",
+    "video_render"
+  ],
+  "otherTools": [
+    {
+      "name": "generate_image",
+      "visible": true
+    },
+    {
+      "name": "text_to_speech",
+      "visible": true
+    }
+  ],
+  "imageAccess": {
+    "attachmentId": "sha256:cd2c3c56952eedbe3e1c72e11ac344979ae96c8d82a54b14893308ca84d22506",
+    "bytes": 29986
+  },
+  "remainingPids": [],
+  "toolResults": {
+    "video_lint": {
+      "isError": false,
+      "contentTypes": [
+        "text"
+      ]
+    },
+    "video_snapshot": {
+      "isError": false,
+      "contentTypes": [
+        "text",
+        "image"
+      ]
+    },
+    "video_render": {
+      "isError": false,
+      "contentTypes": [
+        "text",
+        "file"
+      ]
+    }
+  },
+  "cancelledRender": {
+    "isError": true,
+    "message": "Video Toolkit disabled or unloaded"
+  },
+  "observedRenderProcessCount": 2,
+  "deliveryCount": 1,
+  "restartDisabledToolList": [],
+  "mp4HttpAccess": {
+    "status": 200,
+    "type": "video/mp4",
+    "bytes": 13162
+  },
+  "sessionId": "video-toolkit-smoke-1790937616420",
+  "agentUi": {
+    "mp4DeliveryCardVisible": true,
+    "screenshot": "agent-mp4-card.png"
+  }
+}

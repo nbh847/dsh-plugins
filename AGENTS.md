@@ -6,6 +6,7 @@
 
 - `image-generation/`：图片生成插件，具体边界及验证入口见其 `AGENTS.md`。
 - `text-to-speech/`：文字转语音插件，具体边界及验证入口见其 `AGENTS.md`。
+- `video-toolkit/`：HyperFrames 检查、截图与 MP4 渲染插件项目，具体边界及验收入口见其 `AGENTS.md`。
 - `README.md`：仓库说明与插件入口。
 - `ROADMAP.md`：仓库当前进度；插件实现进度记录在各插件的 `ROADMAP.md`。
 

@@ -1,0 +1,521 @@
+diff --git a/apps/web/tests/settings-chrome.e2e.ts b/apps/web/tests/settings-chrome.e2e.ts
+--- a/apps/web/tests/settings-chrome.e2e.ts
++++ b/apps/web/tests/settings-chrome.e2e.ts
+@@ -147,8 +147,8 @@
+     expect(await dialog.locator('[data-plugin-count]').getAttribute('data-plugin-count'))
+       .toBe(String(expectedPluginCount))
+     expect(await dialog.getByRole('button', { name: '内置插件', exact: true }).getAttribute('aria-current')).toBe('true')
+-    // One contribution shows as the page itself, without a tab row.
+-    expect(await dialog.getByRole('tab').count()).toBe(0)
++    // Inventory and installed-bundle controls share the Plugins section.
++    expect(await dialog.getByRole('tab').count()).toBe(2)
+     expect(await dialog.getByRole('button', { name: '模型', exact: true }).getAttribute('aria-current')).toBeNull()
+     const pluginsSnapshot = await captureStableAria(
+       page,
+diff --git a/apps/web/tests/installed-plugin-settings.e2e.ts b/apps/web/tests/installed-plugin-settings.e2e.ts
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tests/installed-plugin-settings.e2e.ts
+@@ -0,0 +1,49 @@
++/** Installed-bundle activation through the shipped Settings UI, without model calls. */
++import { fileURLToPath } from 'node:url'
++import { join } from 'node:path'
++import type { Browser, Page } from 'playwright'
++import { chromium } from 'playwright'
++import { afterAll, beforeAll, describe, expect, it } from 'vitest'
++import { captureStableAria, compareOrRefreshGolden, launchWebScaffold, webSnapshotMode, type WebScaffold } from './scaffold.ts'
++import { openSettings, ZH_BROWSER_LOCALE } from './support.ts'
++
++const DIR = fileURLToPath(new URL('./expected/installed-plugin-settings', import.meta.url))
++const MODE = webSnapshotMode()
++const PACKAGE = '@fixture/live-client'
++
++describe('web Settings: installed bundle activation', () => {
++  let scaffold: WebScaffold
++  let browser: Browser
++  let page: Page
++  beforeAll(async () => {
++    scaffold = await launchWebScaffold({
++      extraOverlayPath: fileURLToPath(new URL('./pin-browse-picker.overlay.yml', import.meta.url)),
++      profile: { packages: [{ dir: fileURLToPath(new URL('./fixtures/plugins/fixture-live-client', import.meta.url)) }] },
++    })
++    const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
++    browser = await chromium.launch(executablePath === undefined ? {} : { executablePath })
++    page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
++    await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
++    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
++  })
++  afterAll(async () => { await browser?.close(); await scaffold?.close() })
++
++  it('enables, disables, and re-enables an installed bundle while retaining its control', async () => {
++    await openSettings(page, 'zh')
++    const dialog = page.getByRole('dialog', { name: '设置' })
++    await dialog.getByRole('button', { name: '内置插件', exact: true }).click()
++    await dialog.getByRole('tab', { name: '已安装插件', exact: true }).click()
++    const selector = '[aria-label="已安装插件"] li:has-text("@fixture/live-client")'
++    const control = page.getByRole('switch', { name: `${PACKAGE} 启用状态`, exact: true })
++    await expect.poll(() => control.getAttribute('aria-checked')).toBe('false')
++    await compareOrRefreshGolden(join(DIR, 'disabled.expected.md'), await captureStableAria(page, selector, scaffold.workspaceCwd), MODE)
++    await control.click()
++    await expect.poll(() => control.getAttribute('aria-checked')).toBe('true')
++    await compareOrRefreshGolden(join(DIR, 'enabled.expected.md'), await captureStableAria(page, selector, scaffold.workspaceCwd), MODE)
++    await control.click()
++    await expect.poll(() => control.getAttribute('aria-checked')).toBe('false')
++    expect(await control.isEnabled()).toBe(true)
++    await control.click()
++    await expect.poll(() => control.getAttribute('aria-checked')).toBe('true')
++  })
++})
+diff --git a/apps/web/tests/expected/installed-plugin-settings/disabled.expected.md b/apps/web/tests/expected/installed-plugin-settings/disabled.expected.md
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tests/expected/installed-plugin-settings/disabled.expected.md
+@@ -0,0 +1,4 @@
++- listitem:
++  - code: "@fixture/live-client"
++  - text: 0.0.1 已停用
++  - switch "@fixture/live-client 启用状态": 启用
+diff --git a/apps/web/tests/expected/installed-plugin-settings/enabled.expected.md b/apps/web/tests/expected/installed-plugin-settings/enabled.expected.md
+new file mode 100644
+--- /dev/null
++++ b/apps/web/tests/expected/installed-plugin-settings/enabled.expected.md
+@@ -0,0 +1,4 @@
++- listitem:
++  - code: "@fixture/live-client"
++  - text: 0.0.1 已启用
++  - switch "@fixture/live-client 启用状态" [checked]: 关闭
+diff --git a/packages/client/ui-settings-plugin-inventory/README.i18n.yaml b/packages/client/ui-settings-plugin-inventory/README.i18n.yaml
+--- a/packages/client/ui-settings-plugin-inventory/README.i18n.yaml
++++ b/packages/client/ui-settings-plugin-inventory/README.i18n.yaml
+@@ -9,14 +9,14 @@
+   en: 463eecf002ec0f54
+   zh: b8dc6003ddccd14a
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/summary:
+-  en: f52353cf99816eb8
+-  zh: e172c1751289882f
++  en: 8d2772709ce05852
++  zh: 26d782af52e18ee5
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/table-of-contents:
+   en: d152484eb41ac6b4
+   zh: 09388d293f9be9cb
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/use-this-package:
+-  en: 67637808e7940157
+-  zh: d4d0716ea4d33e4a
++  en: 9a2351ec12986e48
++  zh: 19d6dc2b78567f4c
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/use-this-package/reading-a-card:
+   en: 141d6a73e99fee51
+   zh: 2aa28b174867c967
+@@ -30,8 +30,8 @@
+   en: cab883d26642c932
+   zh: 54e7321bd781b400
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/understand-the-implementation/registration:
+-  en: e4792880c5916ce0
+-  zh: 4c8171a446dd153f
++  en: e9866950375fa6e0
++  zh: f861fc07b582131a
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/understand-the-implementation/rendering:
+   en: 779146e3d3732803
+   zh: 0dfafa328dfeda75
+@@ -48,5 +48,5 @@
+   en: 3d3343d97eb73762
+   zh: 5fc9d1c1f0c4055d
+ /deepseek-ai-dsh-client-ui-settings-plugin-inventory/known-limitations-and-deferred-work/dev-note:
+-  en: 7516b7e39304e5b3
+-  zh: 8961c0cefb89ee12
++  en: 093e6542811aeeb3
++  zh: 79f2927309f41902
+diff --git a/packages/client/ui-settings-plugin-inventory/README.md b/packages/client/ui-settings-plugin-inventory/README.md
+--- a/packages/client/ui-settings-plugin-inventory/README.md
++++ b/packages/client/ui-settings-plugin-inventory/README.md
+@@ -9,7 +9,7 @@
+ 
+ ## Summary
+ 
+-The **Plugin list** tab lets Web users inspect plugins without changing their configuration. It lists agent presets, open by default, then the collapsed global inventory; a search opens both. Cards show localized titles and descriptions when available, identify instances by stable entry id, and expose enablement, source details, runtime status, disabled conditions, and discovery failures; preset-provided global entries name their presets. Search covers both groups and points to matches in other presets. The tab handles loading, empty, no-match, failure, and retry states without exposing transport details, and still shows the global inventory without a preset roster.
++Web users inspect configuration in **Plugin list** and enable installed bundles in **Installed plugins**. The inventory lists agent presets, open by default, then the collapsed global inventory; a search opens both. Cards show localized titles and descriptions when available, identify instances by stable entry id, and expose enablement, source details, runtime status, disabled conditions, and discovery failures; preset-provided global entries name their presets. Search covers both groups and points to matches in other presets. The tab handles loading, empty, no-match, failure, and retry states without exposing transport details, and still shows the global inventory without a preset roster.
+ 
+ ## Table of Contents
+ 
+@@ -28,6 +28,8 @@
+ Open the Plugins section in Settings and select the **Plugin list** tab to inspect the Host's plugin inventory. The tab reads no Remote during plugin activation — selecting it for the first time mounts the component and lazily calls `ctx.remote.pluginInventory.list()` through `api-remotes`.
+ 
+ A failed installation with pending pnpm build permissions offers **Allow these scripts and retry**. The action displays the exact package names and persistent permission scope, then retries the original package spec and activation choice. One click approves the entire displayed group, which can include pending packages from earlier attempts. Closing the page grants no permission.
++
++The **Installed plugins** tab reads the profile manager and persists bundle enablement through its existing API. Disabled bundles remain listed so they can be enabled again; this tab belongs to Settings and remains available when a managed plugin is disabled. It reports restart-required, overridden, failed, and read-only outcomes and refreshes after profile changes or reconnects.
+ 
+ ### Reading a card
+ 
+@@ -57,7 +59,7 @@
+ 
+ ### Registration
+ 
+-The browser plugin registers one localized `settings.plugins.tab` contribution with id `all`; the Plugins section owns the navigation entry and tab chrome. Registration uses `ctx.slots.inject()`, so it follows late tab declaration, redeclaration, locale changes, and teardown without importing the section owner.
++The browser plugin registers localized `settings.plugins.tab` contributions with ids `all` and `installed`; the Plugins section owns the navigation entry and tab chrome. Registration uses `ctx.slots.inject()`, so it follows late tab declaration, redeclaration, locale changes, and teardown without importing the section owner.
+ 
+ ### Rendering
+ 
+@@ -108,4 +110,4 @@
+ 
+ </details>
+ 
+-**Runtime invariant:** No companion is published. This package owns a read-only Settings contribution.
++**Runtime invariant:** No companion is published. This package owns the inventory view and installed-bundle controls independently of managed plugins.
+diff --git a/packages/client/ui-settings-plugin-inventory/README.zh.md b/packages/client/ui-settings-plugin-inventory/README.zh.md
+--- a/packages/client/ui-settings-plugin-inventory/README.zh.md
++++ b/packages/client/ui-settings-plugin-inventory/README.zh.md
+@@ -9,7 +9,7 @@
+ 
+ ## 概述
+ 
+-**插件列表**标签页让 Web 用户查看插件，而不改变其配置。它先列 agent（智能体）预设分组，再列全局清单；预设分组默认展开，全局分组默认收起，搜索期间两组都展开。卡片显示可用的本地化标题与描述，以稳定的条目 id 标识实例，并展示启停状态、出处、运行状态、禁用条件与发现失败；由预设提供的全局条目会列出对应预设。搜索覆盖两个分组，并指出其他预设中的匹配。标签页处理加载、空结果、无匹配、失败与重试状态，且不暴露传输细节；没有预设 roster 时仍会展示全局清单。
++Web 用户在**插件列表**中查看配置，在**已安装插件**中启用插件包。清单先列 agent（智能体）预设分组，再列全局清单；预设分组默认展开，全局分组默认收起，搜索期间两组都展开。卡片显示可用的本地化标题与描述，以稳定的条目 id 标识实例，并展示启停状态、出处、运行状态、禁用条件与发现失败；由预设提供的全局条目会列出对应预设。搜索覆盖两个分组，并指出其他预设中的匹配。标签页处理加载、空结果、无匹配、失败与重试状态，且不暴露传输细节；没有预设 roster 时仍会展示全局清单。
+ 
+ ## 目录
+ 
+@@ -28,6 +28,8 @@
+ 打开设置中的「插件」分区并选择**插件列表**标签页，即可查看宿主的插件清单。插件激活期间不会读取 Remote——首次选择该标签页时才挂载组件，并通过 `api-remotes` 懒调用 `ctx.remote.pluginInventory.list()`。
+ 
+ 安装失败且存在待审批的 pnpm 构建权限时，页面提供“允许这些脚本并重试”。该操作展示准确包名和持久授权范围，再使用原来的包规格及启用选项重试。一次点击批准整个列表，其中可能包括此前安装留下的待审批包。关闭页面不会授予权限。
++
++**已安装插件**标签页通过现有配置管理接口读取并保存插件包的启用状态。关闭的插件包仍可重新启用；该标签页属于系统设置，不随受管理插件停用而消失。界面显示需要重启、配置覆盖、操作失败和只读状态，并在配置变更或重新连接后刷新。
+ 
+ ### 阅读卡片
+ 
+@@ -57,7 +59,7 @@
+ 
+ ### 注册
+ 
+-浏览器插件注册一个 id 为 `all` 的本地化 `settings.plugins.tab` 贡献；「插件」分区拥有导航入口与标签栏。注册使用 `ctx.slots.inject()`，因此能跟随标签 slot 的延迟声明、重新声明、本地化变化与 teardown，而无需 import 分区拥有方。
++浏览器插件注册 id 为 `all` 和 `installed` 的本地化 `settings.plugins.tab` 贡献；「插件」分区拥有导航入口与标签栏。注册使用 `ctx.slots.inject()`，因此能跟随标签 slot 的延迟声明、重新声明、本地化变化与 teardown，而无需 import 分区拥有方。
+ 
+ ### 渲染
+ 
+@@ -108,4 +110,4 @@
+ 
+ </details>
+ 
+-**运行时不变式：** 不发布伴生入口。本包只持有一个只读 Settings contribution。
++**运行时不变式：** 不发布伴生入口。本包独立于受管理插件，持有清单视图和已安装插件包的控件。
+diff --git a/packages/client/ui-settings-plugin-inventory/src/client/index.ts b/packages/client/ui-settings-plugin-inventory/src/client/index.ts
+--- a/packages/client/ui-settings-plugin-inventory/src/client/index.ts
++++ b/packages/client/ui-settings-plugin-inventory/src/client/index.ts
+@@ -1,4 +1,4 @@
+-/** Read-only Host plugin inventory registered into Web Settings. */
++/** Host inventory and persistent installed-bundle controls in Web Settings. */
+ 
+ import type {} from '@deepseek-ai/dsh-client-locale/client'
+ import type {} from '@deepseek-ai/dsh-client-modules/client'
+@@ -10,6 +10,8 @@
+ import type {} from '@deepseek-ai/dsh-client-ui-agent-preset/client'
+ // Inline-safe shared fold: shipped ids map to dictionary keys in one home.
+ import { presetDisplayText } from '@deepseek-ai/dsh-agent-preset-registry/display'
++import { InstalledPluginsSettingsTab } from './InstalledPluginsSettingsTab.tsx'
++import type { InstalledPluginsSettingsTabInjected } from './InstalledPluginsSettingsTab.tsx'
+ import { PluginInventorySettingsTab, type PluginInventorySettingsTabInjected } from './PluginInventorySettingsTab.tsx'
+ import { en, zh, type PluginInventoryLocaleKey } from './locales.ts'
+ 
+@@ -31,6 +33,31 @@
+ 
+ /** Contribute the lazy inventory tab to the Plugins settings section. */
+ export function apply(ctx: ClientContext): void {
++  ctx.inject(['remote.pluginManager'], (managed) => {
++    const t = managed.locale.bind(NS)
++    const face: InstalledPluginsSettingsTabInjected = {
++      listBundles: async () => {
++        const result = await managed.remote.pluginManager.listBundles()
++        if (!result.ok) throw new Error(result.error.message)
++        return result.value
++      },
++      setBundleEnabled: async (name, enabled) => {
++        const result = await managed.remote.pluginManager.setBundleEnabled(name, enabled)
++        if (!result.ok) throw new Error(result.error.message)
++        return result.value
++      },
++      subscribe: (listener) => {
++        const offChanged = managed.remote.$on('plugin-manager/changed', listener)
++        const offReset = managed.on('connection/reset', listener)
++        return () => { offChanged(); offReset() }
++      },
++    }
++    managed.slots.inject('settings.plugins.tab', () => managed.slots.register({
++      name: 'settings.plugins.tab', id: 'installed', order: 20,
++      label: () => t('installedTab'), locale: NS, inject: () => face,
++    }, InstalledPluginsSettingsTab))
++  })
++
+   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-settings-plugin-inventory: dictionaries')
+ 
+   const t = ctx.locale.bind(NS)
+diff --git a/packages/client/ui-settings-plugin-inventory/src/client/locales.ts b/packages/client/ui-settings-plugin-inventory/src/client/locales.ts
+--- a/packages/client/ui-settings-plugin-inventory/src/client/locales.ts
++++ b/packages/client/ui-settings-plugin-inventory/src/client/locales.ts
+@@ -2,6 +2,15 @@
+ 
+ /** Simplified Chinese dictionary and key source of truth. */
+ export const zh = {
++  installedTab: '已安装插件',
++  installedIntro: '启用或关闭当前配置中的已安装插件。状态由系统保存，对所有会话生效。',
++  activation: '启用状态',
++  enable: '启用',
++  disable: '关闭',
++  readOnly: '当前配置不可修改',
++  managementError: '插件状态变更失败，请重试或到插件管理页查看详情。',
++  restartRequired: '状态已保存，重启后生效。',
++  activationOverridden: '状态已保存，但被其他配置覆盖，请到插件管理页查看详情。',
+   tab: '插件列表',
+   loading: '正在读取插件…',
+   clientSyncing: '正在同步本页面的插件…',
+@@ -49,6 +58,15 @@
+ 
+ /** English dictionary checked against the Chinese key set. */
+ export const en = {
++  installedTab: 'Installed plugins',
++  installedIntro: 'Enable or disable installed plugins in this profile. Changes persist and affect every session.',
++  activation: 'activation',
++  enable: 'Enable',
++  disable: 'Disable',
++  readOnly: 'This profile cannot be modified',
++  managementError: 'Plugin activation failed. Retry or inspect the plugin manager for details.',
++  restartRequired: 'Saved. Restart to apply the change.',
++  activationOverridden: 'Saved but overridden by another configuration. Inspect the plugin manager for details.',
+   tab: 'Plugin list',
+   loading: 'Reading plugins…',
+   clientSyncing: 'Syncing plugins on this page…',
+diff --git a/packages/client/ui-settings-plugin-inventory/src/client/InstalledPluginsSettingsTab.tsx b/packages/client/ui-settings-plugin-inventory/src/client/InstalledPluginsSettingsTab.tsx
+new file mode 100644
+--- /dev/null
++++ b/packages/client/ui-settings-plugin-inventory/src/client/InstalledPluginsSettingsTab.tsx
+@@ -0,0 +1,70 @@
++/** Installed bundle controls remain available when a managed bundle is disabled. */
++import { useEffect, useState, type ReactNode } from 'react'
++import type { BundleInfo, ChangeResult } from '@deepseek-ai/dsh-api-remotes/client'
++import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
++
++/** Settings projection of the profile manager's persistent bundle operations. */
++export interface InstalledPluginsSettingsTabInjected {
++  /** Read installed bundles, including disabled bundles. */
++  listBundles: () => Promise<BundleInfo[]>
++  /** Persist one bundle's activation and report its observed application outcome. */
++  setBundleEnabled: (name: string, enabled: boolean) => Promise<ChangeResult>
++  /** Subscribe to profile changes and reconnects; return the subscription disposer. */
++  subscribe: (listener: () => void) => () => void
++}
++
++/** Props supplied by the Settings slot renderer. */
++export type InstalledPluginsSettingsTabProps = PropsRuntime<'settings.plugins.tab'>
++  & PropsLocale<'settings.pluginInventory'> & InjectFace<InstalledPluginsSettingsTabInjected>
++
++/** Render persistent profile controls without mounting any managed plugin's client code. */
++export function InstalledPluginsSettingsTab({ listBundles, setBundleEnabled, subscribe, t }: InstalledPluginsSettingsTabProps): ReactNode {
++  const [rows, setRows] = useState<BundleInfo[]>()
++  const [revision, setRevision] = useState(0)
++  const [error, setError] = useState(false)
++  const [readError, setReadError] = useState(false)
++  const [busy, setBusy] = useState<string>()
++  const [notice, setNotice] = useState<'restartRequired' | 'activationOverridden'>()
++  useEffect(() => subscribe(() => { setRevision(value => value + 1) }), [subscribe])
++  useEffect(() => {
++    let current = true
++    void listBundles().then(
++      (value) => { if (current) { setRows(value.filter(row => row.installed)); setReadError(false) } },
++      () => { if (current) setReadError(true) },
++    )
++    return () => { current = false }
++  }, [listBundles, revision])
++
++  const toggle = async (row: BundleInfo): Promise<void> => {
++    setBusy(row.name)
++    setError(false)
++    setNotice(undefined)
++    try {
++      const result = await setBundleEnabled(row.name, !row.enabled)
++      if (result.application === 'failed' || result.application === 'cancelled') setError(true)
++      else if (result.application === 'restart-required') setNotice('restartRequired')
++      else if (result.application === 'overridden') setNotice('activationOverridden')
++      setRevision(value => value + 1)
++    } catch (_managementFailure) {
++      setError(true)
++    } finally {
++      setBusy(undefined)
++    }
++  }
++
++  return <section aria-label={t('installedTab')}>
++    <p>{t('installedIntro')}</p>
++    {error || readError ? <p role="alert">{t('managementError')} <button type="button" onClick={() => { setError(false); setReadError(false); setRevision(value => value + 1) }}>{t('retry')}</button></p> : null}
++    {notice === undefined ? null : <p role="status">{t(notice)}</p>}
++    {rows === undefined ? <p>{t('loading')}</p> : rows.length === 0 ? <p>{t('empty')}</p> : <ul>
++      {rows.map(row => <li key={row.name}>
++        <code>{row.name}</code>{row.version === undefined ? null : <> {row.version}</>}
++        {' '}<span>{t(row.enabled ? 'enabledTag' : 'disabledTag')}</span>{' '}
++        <button type="button" role="switch" aria-checked={row.enabled} aria-label={`${row.name} ${t('activation')}`}
++          disabled={busy !== undefined || row.readOnlyReason !== undefined || (!row.enabled && row.error !== undefined)}
++          onClick={() => { void toggle(row) }}>{t(row.enabled ? 'disable' : 'enable')}</button>
++        {row.readOnlyReason === undefined ? null : <span> {t('readOnly')}</span>}
++      </li>)}
++    </ul>}
++  </section>
++}
+diff --git a/packages/client/ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx b/packages/client/ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx
+--- a/packages/client/ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx
++++ b/packages/client/ui-settings-plugin-inventory/tests/browser-plugin.client.spec.tsx
+@@ -12,6 +12,7 @@
+ import { PluginInventorySettingsTab } from '../src/client/PluginInventorySettingsTab.tsx'
+ import type { PluginInventorySettingsTabInjected } from '../src/client/PluginInventorySettingsTab.tsx'
+ import { apply as hostApply } from '../src/index.ts'
++import type { InstalledPluginsSettingsTabInjected } from '../src/client/InstalledPluginsSettingsTab.tsx'
+ 
+ usePinnedBrowserLanguages('zh-CN')
+ afterEach(cleanup)
+@@ -29,7 +30,10 @@
+   await ctx.plugin(SlotRegistry).await()
+   const locale = new LocaleRuntime(ctx)
+   ctx.provide('locale', locale)
++  const unsubscribe = vi.fn()
++  const onRemote = vi.fn(() => unsubscribe)
+   class RemoteService extends Service {
++    $on = onRemote
+     constructor(serviceCtx: Context) {
+       super(serviceCtx, 'remote')
+     }
+@@ -38,7 +42,7 @@
+   const list = vi.fn<() => Promise<ListResult>>()
+     .mockResolvedValue({ ok: true, value: EMPTY })
+   ctx.provide('remote.pluginInventory', { list })
+-  return { ctx, retryClient, slots: ctx.get('slots') as SlotRegistry, locale, list }
++  return { ctx, onRemote, unsubscribe, retryClient, slots: ctx.get('slots') as SlotRegistry, locale, list }
+ }
+ 
+ function declare(slots: SlotRegistry): () => void {
+@@ -94,6 +98,32 @@
+     await b.ctx.fiber.dispose()
+   })
+ 
++  it('registers installed controls lazily and removes them with their owning fiber', async () => {
++    const b = await bench()
++    declare(b.slots)
++    const listBundles = vi.fn(async () => ({ ok: true, value: [] }))
++    const setBundleEnabled = vi.fn(async () => ({ ok: true, value: { changed: true, stage: 'enable', application: 'applied' } }))
++    b.ctx.provide('remote.pluginManager', { listBundles, setBundleEnabled } as never)
++    const fiber = b.ctx.plugin({ inject: [...inject], apply })
++    await fiber.await()
++    await vi.waitFor(() => { expect(b.slots.entries('settings.plugins.tab')).toHaveLength(2) })
++    expect(listBundles).not.toHaveBeenCalled()
++    const entry = b.slots.entries('settings.plugins.tab').find(row => row.options.id === 'installed')!
++    expect(resolveSlotLabel(entry.options.label)).toBe('已安装插件')
++    const face = (entry.inject as unknown as () => InstalledPluginsSettingsTabInjected)()
++    await expect(face.listBundles()).resolves.toEqual([])
++    await expect(face.setBundleEnabled('test', false)).resolves.toMatchObject({ application: 'applied' })
++    const listener = vi.fn()
++    const off = face.subscribe(listener)
++    b.ctx.emit('connection/reset')
++    expect(listener).toHaveBeenCalledOnce()
++    expect(b.onRemote).toHaveBeenCalledWith('plugin-manager/changed', listener)
++    off()
++    expect(b.unsubscribe).toHaveBeenCalledOnce()
++    await fiber.dispose()
++    expect(b.slots.entries('settings.plugins.tab')).toHaveLength(0)
++  })
++
+   it('follows locale and recovers across late declaration and declarer reload', async () => {
+     const b = await bench()
+     const fiber = b.ctx.plugin({ inject: [...inject], apply })
+diff --git a/packages/client/ui-settings-plugin-inventory/tests/installed-settings.client.spec.tsx b/packages/client/ui-settings-plugin-inventory/tests/installed-settings.client.spec.tsx
+new file mode 100644
+--- /dev/null
++++ b/packages/client/ui-settings-plugin-inventory/tests/installed-settings.client.spec.tsx
+@@ -0,0 +1,82 @@
++// @vitest-environment jsdom
++import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
++import { afterEach, describe, expect, it, vi } from 'vitest'
++import type { BundleInfo } from '@deepseek-ai/dsh-api-remotes/client'
++import { InstalledPluginsSettingsTab } from '../src/client/InstalledPluginsSettingsTab.tsx'
++import type { InstalledPluginsSettingsTabProps } from '../src/client/InstalledPluginsSettingsTab.tsx'
++import { zh } from '../src/client/locales.ts'
++
++afterEach(cleanup)
++const bundle: BundleInfo = {
++  name: 'dsh-plugin-video-toolkit', version: '0.1.0', installed: true, enabled: true,
++  optional: false, removable: true, rows: [], overrides: [],
++}
++function setup(rows = [bundle]) {
++  const listBundles = vi.fn(async () => rows)
++  const setBundleEnabled = vi.fn(async (name: string, enabled: boolean) => {
++    rows = rows.map(row => row.name === name ? { ...row, enabled } : row)
++    return { changed: true, application: 'applied' as const, stage: 'enable' as const, target: name, enabled }
++  })
++  const props = {
++    listBundles, setBundleEnabled, subscribe: () => () => {},
++    t: (key: keyof typeof zh) => zh[key],
++  } as InstalledPluginsSettingsTabProps
++  render(<InstalledPluginsSettingsTab {...props} />)
++  return { listBundles, setBundleEnabled }
++}
++
++describe('installed bundle Settings controls', () => {
++  it('disables a bundle and keeps the control available to re-enable it', async () => {
++    const b = setup()
++    const control = await screen.findByRole('switch')
++    expect(control.getAttribute('aria-checked')).toBe('true')
++    fireEvent.click(control)
++    await waitFor(() => { expect(control.getAttribute('aria-checked')).toBe('false') })
++    fireEvent.click(control)
++    await waitFor(() => { expect(control.getAttribute('aria-checked')).toBe('true') })
++    expect(b.setBundleEnabled.mock.calls).toEqual([[bundle.name, false], [bundle.name, true]])
++  })
++  it('allows disabling an enabled faulty bundle but prevents re-enabling it', async () => {
++    const b = setup([{ ...bundle, error: 'Invalid bundle manifest' }])
++    const control = await screen.findByRole('switch')
++    expect(control.hasAttribute('disabled')).toBe(false)
++    fireEvent.click(control)
++    await waitFor(() => { expect(control.getAttribute('aria-checked')).toBe('false') })
++    expect(control.hasAttribute('disabled')).toBe(true)
++    fireEvent.click(control)
++    expect(b.setBundleEnabled.mock.calls).toEqual([[bundle.name, false]])
++  })
++  it('prevents enabling an already disabled faulty bundle', async () => {
++    const b = setup([{ ...bundle, enabled: false, error: 'Missing bundle patch' }])
++    const control = await screen.findByRole('switch')
++    expect(control.hasAttribute('disabled')).toBe(true)
++    fireEvent.click(control)
++    expect(b.setBundleEnabled).not.toHaveBeenCalled()
++  })
++  it('does not offer mutable controls for profile-read-only bundles', async () => {
++    setup([{ ...bundle, readOnlyReason: 'management-required' }])
++    expect((await screen.findByRole('switch')).hasAttribute('disabled')).toBe(true)
++  })
++  it('shows disabled installed bundles and excludes installation-provided bundles', async () => {
++    setup([{ ...bundle, enabled: false }, { ...bundle, name: 'shipped', installed: false }])
++    expect((await screen.findByRole('switch')).getAttribute('aria-checked')).toBe('false')
++    expect(screen.queryByText('shipped')).toBeNull()
++  })
++  it.each(['failed', 'cancelled'] as const)('retains the %s operation error after refreshing authoritative rows', async (application) => {
++    const b = setup()
++    b.setBundleEnabled.mockResolvedValueOnce({ changed: false, application, stage: 'enable', target: bundle.name, enabled: false } as never)
++    const control = await screen.findByRole('switch')
++    fireEvent.click(control)
++    await waitFor(() => { expect(b.listBundles).toHaveBeenCalledTimes(2) })
++    expect(screen.getByRole('alert')).not.toBeNull()
++    expect(control.getAttribute('aria-checked')).toBe('true')
++  })
++  it('does not reflect a failed activation as success', async () => {
++    const b = setup()
++    b.setBundleEnabled.mockRejectedValueOnce(new Error('refused'))
++    const control = await screen.findByRole('switch')
++    fireEvent.click(control)
++    await screen.findByRole('alert')
++    expect(control.getAttribute('aria-checked')).toBe('true')
++  })
++})
+diff --git a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+--- a/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
++++ b/packages/extensions/cordis-client-runner/src/client/slot-catalog.ts
+@@ -2640,6 +2640,7 @@
+     slotInject: '',
+     declaredBy: 'an entry in \'settings.section\' (client-ui-settings-plugins), so it exists while that entry is mounted',
+     occupants: [
++      'client-ui-settings-plugin-inventory InstalledPluginsSettingsTab id \'installed\'',
+       'client-ui-settings-plugin-inventory PluginInventorySettingsTab id \'all\'',
+     ],
+     replaceRisk: 'none',

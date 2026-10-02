@@ -1,0 +1,218 @@
+[
+  {
+    "id": "doc-typecheck",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "docs-site-build",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "doc-graphs",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "markdown-links",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "type-equivalence",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "cordis-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "cordis-inspect-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "workflow-guest",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "mermaid",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "scoped-events",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "translation-pairing",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "markdown-wrap",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "client-catalog",
+    "status": "passed",
+    "exitCode": 0,
+    "note": "Generated one new settings occupant, then reran verify-client-catalog successfully."
+  },
+  {
+    "id": "export-jsdoc",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "tool-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "config-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "plugin-packages",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "dependency-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "persistence-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "persistence-changes",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "persistence-releases",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "persistence-formats",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "session-format-catalog",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "public-repository-links",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "repository-references",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "concrete-terms",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "doc-refs",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "subsystem-pages",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "package-paths",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "tsconfig-paths",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "config-source-ownership",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "package-readme-summaries",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "package-readme-model-experience",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "agent-note-classification",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "agent-note-format",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "archived-agent-notes",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "skill-invocation-metadata",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "translation-prompt",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "doc-budgets",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "upgrade-guides",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "doc-standard-tests",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "docs-site-projection",
+    "status": "passed",
+    "exitCode": 0
+  },
+  {
+    "id": "package-readme-limitations",
+    "status": "passed",
+    "exitCode": 0
+  }
+]

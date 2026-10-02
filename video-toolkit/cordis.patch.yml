@@ -1,0 +1,4 @@
+# Register the three HyperFrames tools as one switchable Cordis plugin.
+- insert:
+    - id: video-toolkit
+      name: dsh-plugin-video-toolkit
